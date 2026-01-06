@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="Razboi in 8/Razboi in 8.vcxproj" />
+  <Project Path="Razboi in 8/Razboi in 8.vcxproj" Id="75e38da1-53e7-447c-a585-a6c7da968a77" />
 </Solution>
