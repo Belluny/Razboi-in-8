@@ -7,7 +7,8 @@
 #include <cmath> 
 #include <cstdlib> // Pentru rand()
 #include <ctime>   // Pentru time()
-
+#include <string>
+#include <fstream>
 using namespace std;
 
 // =========================================================
@@ -19,6 +20,7 @@ int randulJucatorului = 1; // 1 = Alb (Om), 2 = Negru (Om sau PC)
 int adversar = 2;
 int sursaRand = -1;
 int sursaCol = -1;
+int timpAcumulat;
 
 // Variabile pentru Undo  (Coordonate)
 int undo_rVechi = -1, undo_cVechi = -1;
@@ -36,6 +38,8 @@ unsigned int contorpieseNegre = 0;
 
 float offsetX = (1920.f - 800.f) / 2.f;
 float offsetY = (1080.f - 800.f) / 2.f;
+
+char bufferTimp[] = "Timp: 00:00";
 
 // --- FUNCTII AJUTATOARE ---
 
@@ -98,6 +102,17 @@ void resetareJoc() {
     contorpieseNegre = 0;
     sursaRand = -1;
     sursaCol = -1;
+}
+char* obtineTimpFormatat(int secundeTotale) {
+    int minute = secundeTotale / 60;
+    int secunde = secundeTotale % 60;
+
+    bufferTimp[6] = (minute / 10) + '0';
+    bufferTimp[7] = (minute % 10) + '0';
+    bufferTimp[9] = (secunde / 10) + '0';
+    bufferTimp[10] = (secunde % 10) + '0';
+
+    return bufferTimp;
 }
 
 // =========================================================
@@ -385,6 +400,20 @@ int main()
     sf::Text titluMusic = creareTitlu(colStanga, startY - 100.f, "MUSIC:", font);
     Slider sldMusic(colDreapta - 150.f, startY - 75.f, 500.f, 50.f);
 
+    sf::Clock ceasDelta;      // Masoara timpul dintre cadre
+    float timpAcumulat = 0;   // Retine timpul total de joc
+
+    sf::Text txtTimp(font, "Timp: 00:00", 35);
+    txtTimp.setPosition({ 50.f, 300.f });
+    txtTimp.setFillColor(sf::Color::White);
+    txtTimp.setOutlineColor(sf::Color::Black);
+    txtTimp.setOutlineThickness(1.5f);
+
+    sf::Text txtEliminare(font, "", 30); // Text gol la inceput
+    txtEliminare.setPosition({ 50.f, 400.f }); // Mai jos de timp
+    txtEliminare.setFillColor(sf::Color::Yellow);
+    txtEliminare.setOutlineColor(sf::Color::Black);
+    txtEliminare.setOutlineThickness(1.5f);
     
 
 
@@ -393,6 +422,11 @@ int main()
         sf::Vector2f mousePosFloat = window.mapPixelToCoords(sf::Mouse::getPosition(window));
         sf::Vector2i mousePosPixel = sf::Mouse::getPosition(window);
         bool isMouseLeftDown = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
+
+        float dt = ceasDelta.restart().asSeconds();
+        if (currentState == GameState::GAME) {
+            timpAcumulat += dt;
+        }
 
         // Update Muzica
         if (currentState == GameState::OPTIONS) {
@@ -557,6 +591,17 @@ int main()
                 if (keyEvent->code == sf::Keyboard::Key::Escape && currentState != GameState::MENU) currentState = GameState::MENU;
             }
         }
+       
+        if (currentState == GameState::GAME)
+        {
+            // Trimitem (int)timpAcumulat catre functie
+            txtTimp.setString(obtineTimpFormatat((int)timpAcumulat));
+            int ramase = mutariMinime - contorMutari;
+            if (ramase > 0) {
+                txtEliminare.setString("Eliminare in: " + std::to_string(ramase));
+            }
+        }
+
 
         // --- HOVER EFFECTS ---
         if (currentState == GameState::MENU) {
@@ -634,8 +679,14 @@ int main()
                     }
                 }
             }
+            window.draw(txtTimp);
             btnBack.draw(window);
             btnUndo.draw(window);
+
+            if (contorMutari < mutariMinime)
+            {
+                window.draw(txtEliminare);
+            }
         }
         else if (currentState == GameState::OPTIONS)
         {
