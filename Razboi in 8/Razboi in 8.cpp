@@ -20,6 +20,12 @@ int adversar = 2;
 int sursaRand = -1;
 int sursaCol = -1;
 
+// Variabile pentru Undo  (Coordonate)
+int undo_rVechi = -1, undo_cVechi = -1;
+int undo_rNou = -1, undo_cNou = -1;
+int undo_valoarePiesa = 0;
+bool amMutareDeAnulat = false;
+
 // TIPUL DE JOC: 0 = PvP, 1 = PC Easy, 2 = PC Hard
 int tipJoc = 0;
 
@@ -125,7 +131,7 @@ std::vector<Mutare> genereazaToateMutarile(int jucator)
     return mutariPosibile;
 }
 
-// 2. Functia de eliminare (TREBUIE PUSA AICI, INAINTE DE MUTARE!)
+// 2. Functia de eliminare
 void incearcaEliminareDupaMutare(int r, int c)
 {
     if (contorMutari <= mutariMinime) return;
@@ -364,7 +370,7 @@ int main()
     Button btnSettings(centerX, startY, btnWidth, btnHeight, "SETTINGS", font);
     Button btnQuit(centerX, startY + 200.f, btnWidth, btnHeight, "QUIT", font);
     Button btnBack(50.f, 50.f, 200.f, 80.f, "BACK", font);
-
+    Button btnUndo(50.f, 150.f, 200.f, 80.f, "UNDO", font);
     // --- BUTOANE SELECTIE MOD (NOU) ---
     Button btnPvP(centerX, startY - 200.f, btnWidth, btnHeight, "PvP (Local)", font);
     Button btnEasy(centerX, startY, btnWidth, btnHeight, "PvC (Easy)", font);
@@ -378,6 +384,8 @@ int main()
     Button btnRez2(colDreapta + 125.f, startY - 200.f, 200.f, 50.f, "1280x720", font);
     sf::Text titluMusic = creareTitlu(colStanga, startY - 100.f, "MUSIC:", font);
     Slider sldMusic(colDreapta - 150.f, startY - 75.f, 500.f, 50.f);
+
+    
 
 
     while (window.isOpen())
@@ -454,7 +462,32 @@ int main()
                         }
                         if (btnBack.isHovered(mousePosFloat)) currentState = GameState::MENU;
                     }
+                    // --- BUTONUL UNDO (NOU) ---
+                    if (btnUndo.isHovered(mousePosFloat))
+                    {
+                        if (amMutareDeAnulat)
+                        {
+                            // Executăm logica de Undo (bazată pe coordonate)
+                            matrice[undo_rVechi][undo_cVechi] = undo_valoarePiesa;
+                            matrice[undo_rNou][undo_cNou] = 0;
 
+                            // Schimbăm tura înapoi
+                            if (randulJucatorului == 1) randulJucatorului = 2;
+                            else randulJucatorului = 1;
+
+                            adversar = (randulJucatorului == 1) ? 2 : 1;
+                            contorMutari--;
+
+                            // Resetam selecția și starea de undo
+                            sursaRand = -1; sursaCol = -1;
+                            amMutareDeAnulat = false;
+
+                            std::cout << "Ai apasat butonul UNDO!" << std::endl;
+                        }
+                        else {
+                            std::cout << "Nu ai nicio mutare de anulat!" << std::endl;
+                        }
+                    }
                     // 4. JOC (Input Om)
                     else if (currentState == GameState::GAME)
                     {
@@ -484,10 +517,26 @@ int main()
                                         if (contorMutari > mutariMinime) matrice[r][c] = 0; // Eliminare
                                     }
                                 }
-                                else {
-                                    if (r == sursaRand && c == sursaCol) { sursaRand = -1; sursaCol = -1; }
-                                    else if (val == randulJucatorului) { sursaRand = r; sursaCol = c; }
-                                    else if (verificaMutare(sursaRand, sursaCol, r, c)) {
+                                else 
+                                {
+                                    if (r == sursaRand && c == sursaCol) 
+                                    { 
+                                        sursaRand = -1; 
+                                        sursaCol = -1; 
+                                    }
+                                    else if (val == randulJucatorului) 
+                                    { 
+                                        sursaRand = r; sursaCol = c;
+                                    }
+                                    else if (verificaMutare(sursaRand, sursaCol, r, c)) 
+                                    {
+                                        // --- MEMORĂM POZIȚIA ---
+                                        undo_rVechi = sursaRand;
+                                        undo_cVechi = sursaCol;
+                                        undo_rNou = r;
+                                        undo_cNou = c;
+                                        undo_valoarePiesa = matrice[sursaRand][sursaCol];
+                                        amMutareDeAnulat = true;
                                         mutaPiesa(sursaRand, sursaCol, r, c);
                                         // Schimbam tura
                                         if (randulJucatorului == 1) randulJucatorului = 2;
@@ -523,7 +572,9 @@ int main()
         }
         else if (currentState == GameState::OPTIONS || currentState == GameState::GAME) {
             btnBack.shape.setFillColor(btnBack.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
+            btnUndo.shape.setFillColor(btnUndo.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
         }
+        
 
         // --- DESENARE ---
         window.clear(sf::Color(30, 30, 30));
@@ -542,7 +593,7 @@ int main()
         }
         else if (currentState == GameState::MODE_SELECT)
         {
-            sf::Text title(font, "SELECT MODE", 80);
+            sf::Text title(font, "SELECTEAZA MOD", 80);
             title.setFillColor(sf::Color::White);
             sf::FloatRect bounds = title.getLocalBounds();
             title.setOrigin({ bounds.size.x / 2.f, bounds.size.y / 2.f });
@@ -584,6 +635,7 @@ int main()
                 }
             }
             btnBack.draw(window);
+            btnUndo.draw(window);
         }
         else if (currentState == GameState::OPTIONS)
         {
