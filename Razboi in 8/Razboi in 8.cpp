@@ -11,6 +11,14 @@
 #include <fstream>
 using namespace std;
 
+std::vector<sf::Color> culoriDisponibile = {
+    sf::Color::White, sf::Color::Black, sf::Color(128, 0, 32), sf::Color::Blue,
+    sf::Color::Green, sf::Color::Yellow, sf::Color::Cyan, sf::Color::Magenta
+};
+
+int idxP1 = 0; // Default P1 = Alb
+int idxP2 = 1; // Default P2 = Negru
+
 // =========================================================
 // 1. VARIABILELE SI FUNCTIILE JOCULUI (LOGICA)
 // =========================================================
@@ -38,6 +46,7 @@ unsigned int contorpieseNegre = 0;
 
 float offsetX = (1920.f - 800.f) / 2.f;
 float offsetY = (1080.f - 800.f) / 2.f;
+float cellSize = 100.f;
 
 char bufferTimp[] = "Timp: 00:00";
 
@@ -245,25 +254,33 @@ void mutareCalculatorHard()
 
 enum class GameState { MENU, MODE_SELECT, GAME, OPTIONS, EXIT };
 
-struct Button
-{
+struct Button {
     sf::RectangleShape shape;
     sf::Text text;
+    float width, height;
 
-    Button(float x, float y, float width, float height, std::string label, const sf::Font& font)
-        : text(font, label, 40)
+    Button(float x, float y, float w, float h, std::string label, const sf::Font& font)
+        : text(font, label, 30), width(w), height(h)
     {
         shape.setPosition({ x, y });
         shape.setSize({ width, height });
         shape.setFillColor(sf::Color(50, 50, 50));
         shape.setOutlineThickness(2);
         shape.setOutlineColor(sf::Color::White);
-
         text.setFillColor(sf::Color::White);
+        centerText(x, y);
+    }
+
+    void centerText(float x, float y) {
         sf::FloatRect bounds = text.getLocalBounds();
         text.setOrigin({ bounds.position.x + bounds.size.x / 2.0f,
                          bounds.position.y + bounds.size.y / 2.0f });
         text.setPosition({ x + width / 2.0f, y + height / 2.0f });
+    }
+
+    void setPosition(float x, float y) {
+        shape.setPosition({ x, y });
+        centerText(x, y);
     }
 
     bool isHovered(sf::Vector2f mousePos) {
@@ -273,6 +290,44 @@ struct Button
     void draw(sf::RenderWindow& window) {
         window.draw(shape);
         window.draw(text);
+    }
+};
+
+struct ColorButton {
+    sf::CircleShape shape;
+    int colorIndex;
+
+    ColorButton(float x, float y, float radius, int index, sf::Color color) {
+        shape.setRadius(radius);
+        shape.setPosition({ x, y });
+        shape.setFillColor(color);
+        shape.setOutlineThickness(2);
+        shape.setOutlineColor(sf::Color(80, 80, 80));
+        colorIndex = index;
+    }
+
+    void setPosition(float x, float y) {
+        shape.setPosition({ x, y });
+    }
+
+    bool isHovered(sf::Vector2f mousePos) {
+        return shape.getGlobalBounds().contains(mousePos);
+    }
+
+    // Evidentierea cercului selectat
+    void setSelected(bool selected) {
+        if (selected) {
+            shape.setOutlineColor(sf::Color::White);
+            shape.setOutlineThickness(4);
+        }
+        else {
+            shape.setOutlineColor(sf::Color(80, 80, 80));
+            shape.setOutlineThickness(2);
+        }
+    }
+
+    void draw(sf::RenderWindow& window) {
+        window.draw(shape);
     }
 };
 
@@ -298,6 +353,13 @@ struct Slider
         cerc.setFillColor(sf::Color::White);
         cerc.setOrigin({ 10.f, 10.f });
         cerc.setPosition({ x + width * (val / 100.f), y + 5.f });
+    }
+
+    void setPosition(float x, float y) {
+        bar.setPosition({ x, y });
+        fill.setPosition({ x, y });
+        fill.setSize({ bar.getSize().x * (val / 100.f), 10.f });
+        cerc.setPosition({ x + bar.getSize().x * (val / 100.f), y + 5.f });
     }
 
     void update(sf::Vector2f mousePos, bool isMouseDown)
@@ -376,46 +438,106 @@ int main()
     GameState currentState = GameState::MENU;
 
     // --- BUTOANE MENU PRINCIPAL ---
-    float btnWidth = 400.f;
-    float btnHeight = 120.f;
-    float centerX = (1920.f / 2.f) - (btnWidth / 2.f);
-    float startY = 1080.f / 2.f;
+    float btnW = 400.f; float btnH = 80.f;
 
-    Button btnStart(centerX, startY - 200.f, btnWidth, btnHeight, "START", font);
-    Button btnSettings(centerX, startY, btnWidth, btnHeight, "SETTINGS", font);
-    Button btnQuit(centerX, startY + 200.f, btnWidth, btnHeight, "QUIT", font);
-    Button btnBack(50.f, 50.f, 200.f, 80.f, "BACK", font);
-    Button btnUndo(50.f, 150.f, 200.f, 80.f, "UNDO", font);
-    // --- BUTOANE SELECTIE MOD (NOU) ---
-    Button btnPvP(centerX, startY - 200.f, btnWidth, btnHeight, "PvP (Local)", font);
-    Button btnEasy(centerX, startY, btnWidth, btnHeight, "PvC (Easy)", font);
-    Button btnHard(centerX, startY + 200.f, btnWidth, btnHeight, "PvC (Hard)", font);
+    // Menu Buttons
+    Button btnStart(0, 0, btnW, btnH, "START", font);
+    Button btnSettings(0, 0, btnW, btnH, "SETTINGS", font);
+    Button btnQuit(0, 0, btnW, btnH, "QUIT", font);
 
-    // --- SETTINGS ---
-    float colStanga = 600.f;
-    float colDreapta = 1100.f;
-    sf::Text titluRez = creareTitlu(colStanga, startY - 200.f, "RESOLUTION:", font);
-    Button btnRez1(colDreapta - 125.f, startY - 200.f, 200.f, 50.f, "1920x1080", font);
-    Button btnRez2(colDreapta + 125.f, startY - 200.f, 200.f, 50.f, "1280x720", font);
-    sf::Text titluMusic = creareTitlu(colStanga, startY - 100.f, "MUSIC:", font);
-    Slider sldMusic(colDreapta - 150.f, startY - 75.f, 500.f, 50.f);
+    // Mode Buttons
+    Button btnPvP(0, 0, btnW, btnH, "PvP (Local)", font);
+    Button btnEasy(0, 0, btnW, btnH, "PvC (Easy)", font);
+    Button btnHard(0, 0, btnW, btnH, "PvC (Hard)", font);
+    Button btnBack(50, 50, 200, 60, "BACK", font);
+
+    // In-Game UI
+    Button btnUndo(50, 150, 200, 60, "UNDO", font);
+    sf::Text txtTimp(font, "Timp: 00:00", 35);
+    txtTimp.setPosition({ 50.f, 300.f });
+    sf::Text txtEliminare(font, "", 30);
+    txtEliminare.setPosition({ 50.f, 400.f });
+    txtEliminare.setFillColor(sf::Color::Yellow);
+
+    // Settings UI
+    sf::Text titluSettings = creareTitlu(0, 0, "SETTINGS", font);
+    titluSettings.setCharacterSize(70);
+    titluSettings.setFillColor(sf::Color::White);
+    sf::FloatRect boundsSet = titluSettings.getLocalBounds();
+    titluSettings.setOrigin({ boundsSet.size.x / 2.f, boundsSet.size.y / 2.f });
+
+    sf::Text titluRez = creareTitlu(0, 0, "RESOLUTION:", font);
+    Button btnRez1(0, 0, 200, 50, "1920x1080", font);
+    Button btnRez2(0, 0, 200, 50, "1280x720", font);
+
+    sf::Text titluP1 = creareTitlu(0, 0, "PLAYER 1:", font);
+    std::vector<ColorButton> paletaP1;
+
+    sf::Text titluP2 = creareTitlu(0, 0, "PLAYER 2:", font);
+    std::vector<ColorButton> paletaP2;
+
+    float cercRadius = 20.f;
+    for (int i = 0; i < culoriDisponibile.size(); i++) {
+        paletaP1.push_back(ColorButton(0, 0, cercRadius, i, culoriDisponibile[i]));
+        paletaP2.push_back(ColorButton(0, 0, cercRadius, i, culoriDisponibile[i]));
+    }
+    sf::Text titluMusic = creareTitlu(0, 0, "MUSIC:", font);
+    Slider sldMusic(0, 0, 400.f, 50.f);
 
     sf::Clock ceasDelta;      // Masoara timpul dintre cadre
     float timpAcumulat = 0;   // Retine timpul total de joc
 
-    sf::Text txtTimp(font, "Timp: 00:00", 35);
-    txtTimp.setPosition({ 50.f, 300.f });
-    txtTimp.setFillColor(sf::Color::White);
-    txtTimp.setOutlineColor(sf::Color::Black);
-    txtTimp.setOutlineThickness(1.5f);
+    auto updateLayout = [&](float w, float h) {
+        float cx = w / 2.f; float cy = h / 2.f;
 
-    sf::Text txtEliminare(font, "", 30); // Text gol la inceput
-    txtEliminare.setPosition({ 50.f, 400.f }); // Mai jos de timp
-    txtEliminare.setFillColor(sf::Color::Yellow);
-    txtEliminare.setOutlineColor(sf::Color::Black);
-    txtEliminare.setOutlineThickness(1.5f);
-    
+        btnStart.setPosition(cx - btnW / 2, cy - 150);
+        btnSettings.setPosition(cx - btnW / 2, cy);
+        btnQuit.setPosition(cx - btnW / 2, cy + 150);
 
+        btnPvP.setPosition(cx - btnW / 2, cy - 150);
+        btnEasy.setPosition(cx - btnW / 2, cy);
+        btnHard.setPosition(cx - btnW / 2, cy + 150);
+
+        float colL = w * 0.25f;
+        float colR = w * 0.60f;
+
+        titluSettings.setPosition({ cx, h * 0.15f });
+
+        float yRez = cy - 200;
+        titluRez.setPosition({ colL, yRez });
+        btnRez1.setPosition(colR - 210.f, yRez);
+        btnRez2.setPosition(colR + 10.f, yRez);
+
+        float startX_Color = colR - 195.f;
+
+        float yP1 = cy - 100;
+        titluP1.setPosition({ colL, yP1 });
+        for (int i = 0; i < paletaP1.size(); i++) {
+            paletaP1[i].setPosition(startX_Color + (i * 50.f), yP1);
+        }
+
+        float yP2 = cy;
+        titluP2.setPosition({ colL, yP2 });
+        for (int i = 0; i < paletaP2.size(); i++) {
+            paletaP2[i].setPosition(startX_Color + (i * 50.f), yP2);
+        }
+
+        float yMus = cy + 100;
+        titluMusic.setPosition({ colL, yMus });
+        sldMusic.setPosition(colR - 200.f, yMus + 10.f);
+
+        if (h < 900.f) cellSize = 80.f;
+        else cellSize = 100.f;
+        float boardSize = 8 * cellSize;
+        offsetX = (w - boardSize) / 2.f;
+        offsetY = (h - boardSize) / 2.f;
+
+        btnUndo.setPosition(50.f, 150.f);
+
+        btnBack.setPosition(50, 50);
+        };
+
+    updateLayout((float)window.getSize().x, (float)window.getSize().y);
 
     while (window.isOpen())
     {
@@ -489,11 +611,29 @@ int main()
                         if (btnRez1.isHovered(mousePosFloat)) {
                             window.create(sf::VideoMode({ 1920, 1080 }), "Razboi in 8", sf::Style::Default, sf::State::Fullscreen);
                             offsetX = (1920.f - 800.f) / 2.f; offsetY = (1080.f - 800.f) / 2.f;
+                            updateLayout(1920.f, 1080.f);
                         }
                         else if (btnRez2.isHovered(mousePosFloat)) {
                             window.create(sf::VideoMode({ 1280, 720 }), "Razboi in 8", sf::Style::Default, sf::State::Windowed);
                             offsetX = (1280.f - 800.f) / 2.f; offsetY = (720.f - 800.f) / 2.f;
+                            updateLayout(1280.f, 720.f);
                         }
+
+                        for (auto& btn : paletaP1) {
+                            if (btn.isHovered(mousePosFloat)) {
+                                int vechiulIndexP1 = idxP1;
+                                idxP1 = btn.colorIndex;
+                                if (idxP1 == idxP2) idxP2 = vechiulIndexP1;
+                            }
+                        }
+                        for (auto& btn : paletaP2) {
+                            if (btn.isHovered(mousePosFloat)) {
+                                int vechiulIndexP2 = idxP2;
+                                idxP2 = btn.colorIndex;
+                                if (idxP2 == idxP1) idxP1 = vechiulIndexP2;
+                            }
+                        }
+
                         if (btnBack.isHovered(mousePosFloat)) currentState = GameState::MENU;
                     }
                     // --- BUTONUL UNDO (NOU) ---
@@ -533,8 +673,8 @@ int main()
 
                         if (eRandulMeu && !btnBack.isHovered(mousePosFloat))
                         {
-                            int c = (mousePosPixel.x - (int)offsetX) / 100;
-                            int r = (mousePosPixel.y - (int)offsetY) / 100;
+                            int c = (int)((mousePosPixel.x - offsetX) / cellSize);
+                            int r = (int)((mousePosPixel.y - offsetY) / cellSize);
 
                             if (r >= 0 && r < 8 && c >= 0 && c < 8)
                             {
@@ -551,18 +691,18 @@ int main()
                                         if (contorMutari > mutariMinime) matrice[r][c] = 0; // Eliminare
                                     }
                                 }
-                                else 
+                                else
                                 {
-                                    if (r == sursaRand && c == sursaCol) 
-                                    { 
-                                        sursaRand = -1; 
-                                        sursaCol = -1; 
+                                    if (r == sursaRand && c == sursaCol)
+                                    {
+                                        sursaRand = -1;
+                                        sursaCol = -1;
                                     }
-                                    else if (val == randulJucatorului) 
-                                    { 
+                                    else if (val == randulJucatorului)
+                                    {
                                         sursaRand = r; sursaCol = c;
                                     }
-                                    else if (verificaMutare(sursaRand, sursaCol, r, c)) 
+                                    else if (verificaMutare(sursaRand, sursaCol, r, c))
                                     {
                                         // --- MEMORĂM POZIȚIA ---
                                         undo_rVechi = sursaRand;
@@ -591,7 +731,7 @@ int main()
                 if (keyEvent->code == sf::Keyboard::Key::Escape && currentState != GameState::MENU) currentState = GameState::MENU;
             }
         }
-       
+
         if (currentState == GameState::GAME)
         {
             // Trimitem (int)timpAcumulat catre functie
@@ -615,11 +755,19 @@ int main()
             btnHard.shape.setFillColor(btnHard.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
             btnBack.shape.setFillColor(btnBack.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
         }
-        else if (currentState == GameState::OPTIONS || currentState == GameState::GAME) {
+        else if (currentState == GameState::OPTIONS) {
             btnBack.shape.setFillColor(btnBack.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
+
+            btnRez1.shape.setFillColor(btnRez1.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
+
+            btnRez2.shape.setFillColor(btnRez2.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
+        }
+        else if (currentState == GameState::GAME) {
+            btnBack.shape.setFillColor(btnBack.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
+
             btnUndo.shape.setFillColor(btnUndo.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
         }
-        
+
 
         // --- DESENARE ---
         window.clear(sf::Color(30, 30, 30));
@@ -630,7 +778,7 @@ int main()
             title.setFillColor(sf::Color::Red);
             sf::FloatRect bounds = title.getLocalBounds();
             title.setOrigin({ bounds.size.x / 2.f, bounds.size.y / 2.f });
-            title.setPosition({ 960.f, startY - 400.f });
+            title.setPosition({ (float)window.getSize().x / 2.f, (float)window.getSize().y / 2.f - 300.f });
             window.draw(title);
             btnStart.draw(window);
             btnSettings.draw(window);
@@ -642,7 +790,7 @@ int main()
             title.setFillColor(sf::Color::White);
             sf::FloatRect bounds = title.getLocalBounds();
             title.setOrigin({ bounds.size.x / 2.f, bounds.size.y / 2.f });
-            title.setPosition({ 960.f, startY - 400.f });
+            title.setPosition({ (float)window.getSize().x / 2.f, (float)window.getSize().y / 2.f - 300.f });
             window.draw(title);
 
             btnPvP.draw(window);
@@ -653,7 +801,7 @@ int main()
         else if (currentState == GameState::GAME)
         {
             // TABLA
-            sf::RectangleShape rectangle({ 100.f, 100.f });
+            sf::RectangleShape rectangle({ cellSize, cellSize });
             float rectX = offsetX;
             float rectY = offsetY;
             for (int i = 0; i < 8; i++) {
@@ -662,24 +810,36 @@ int main()
                     if ((i + j) % 2 == 0) rectangle.setFillColor(sf::Color::White);
                     else rectangle.setFillColor(sf::Color(100, 100, 100));
                     window.draw(rectangle);
-                    rectX += 100.f;
+                    rectX += cellSize;
                 }
-                rectX = offsetX; rectY += 100.f;
+                rectX = offsetX; rectY += cellSize;
             }
             // PIESE
+            piesa.setRadius(cellSize / 2.f - 5.f);
+            piesa.setOrigin({ cellSize / 2.f - 5.f, cellSize / 2.f - 5.f });
             for (int i = 0; i < 8; i++) {
                 for (int j = 0; j < 8; j++) {
                     int valoare = verificaLoc(i, j);
                     if (valoare != 0) {
-                        piesa.setPosition({ offsetX + j * 100.f, offsetY + i * 100.f });
-                        if (valoare == 1) piesa.setFillColor(sf::Color::White);
-                        else piesa.setFillColor(sf::Color::Black);
-                        if (i == sursaRand && j == sursaCol) piesa.setFillColor(sf::Color::Green);
+                        float posX = offsetX + j * cellSize + cellSize / 2.f;
+                        float posY = offsetY + i * cellSize + cellSize / 2.f;
+                        piesa.setPosition({ posX, posY });
+                        if (valoare == 1) piesa.setFillColor(culoriDisponibile[idxP1]);
+                        else piesa.setFillColor(culoriDisponibile[idxP2]);
+
+                        if (i == sursaRand && j == sursaCol)
+                        {
+                            piesa.setOutlineThickness(-5.f);
+                            piesa.setOutlineColor(sf::Color::Red);
+                        }
+                        else
+                            piesa.setOutlineThickness(0.f);
                         window.draw(piesa);
                     }
                 }
             }
             window.draw(txtTimp);
+            window.draw(txtEliminare);
             btnBack.draw(window);
             btnUndo.draw(window);
 
@@ -690,12 +850,26 @@ int main()
         }
         else if (currentState == GameState::OPTIONS)
         {
-            sf::Text txt(font, "SETTINGS", 70);
-            sf::FloatRect bounds = txt.getLocalBounds();
-            txt.setOrigin({ bounds.size.x / 2.f, bounds.size.y / 2.f });
-            txt.setPosition({ 960.f, startY - 400.f });
-            window.draw(txt);
+            window.draw(titluSettings);
             window.draw(titluRez); btnRez1.draw(window); btnRez2.draw(window);
+
+            //Culori
+            window.draw(titluP1);
+            for (auto& btn : paletaP1) {
+                btn.setSelected(btn.colorIndex == idxP1);
+                // Facem gri daca e ocupat de celalalt
+                if (btn.colorIndex == idxP2) btn.shape.setFillColor(sf::Color(60, 60, 60));
+                else btn.shape.setFillColor(culoriDisponibile[btn.colorIndex]);
+                btn.draw(window);
+            }
+            window.draw(titluP2);
+            for (auto& btn : paletaP2) {
+                btn.setSelected(btn.colorIndex == idxP2);
+                if (btn.colorIndex == idxP1) btn.shape.setFillColor(sf::Color(60, 60, 60));
+                else btn.shape.setFillColor(culoriDisponibile[btn.colorIndex]);
+                btn.draw(window);
+            }
+
             window.draw(titluMusic); sldMusic.draw(window);
             btnBack.draw(window);
         }
