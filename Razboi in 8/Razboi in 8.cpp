@@ -426,14 +426,15 @@ int main()
 
     sf::Music music;
     if (music.openFromFile("muzica.mp3")) {
-        music.setLooping(true);
-        music.setVolume(50);
-        music.play();
+       music.setLooping(true);
+       music.setVolume(50);
+       music.play();
     }
 
     construireMatrice(0, 0);
     sf::CircleShape piesa(50.f);
     piesa.setOrigin({ 0.f, 0.f });
+    sf::Clock aiTimer;
 
     GameState currentState = GameState::MENU;
 
@@ -560,15 +561,21 @@ int main()
         // Doar daca suntem in joc, e randul Negrului, si nu e PvP
         if (currentState == GameState::GAME && randulJucatorului == 2 && tipJoc != 0)
         {
-            sf::sleep(sf::milliseconds(300)); // Mica pauza "de gandire"
+            if (aiTimer.getElapsedTime().asSeconds() < 2.0f)
+            {
+                // Nu face nimic
+            }
+            else 
+            { 
+                if (tipJoc == 1) mutareCalculatorEasy();
+                else if (tipJoc == 2) mutareCalculatorHard();
 
-            if (tipJoc == 1) mutareCalculatorEasy();
-            else if (tipJoc == 2) mutareCalculatorHard();
-
-            // Dupa ce a mutat PC-ul:
-            contorMutari++;
-            randulJucatorului = 1; // Randul Omului
-            adversar = 2;
+                // Dupa ce a mutat PC-ul:
+                contorMutari++;
+                randulJucatorului = 1; // Randul Omului
+                adversar = 2;
+                amMutareDeAnulat = false;
+            }
         }
 
         // --- EVENIMENTE ---
@@ -719,6 +726,7 @@ int main()
                                         adversar = randulJucatorului;
                                         contorMutari++;
                                         sursaRand = -1; sursaCol = -1;
+                                        aiTimer.restart();
                                     }
                                 }
                             }
