@@ -239,6 +239,7 @@ void mutareCalculatorHard()
             best = m;
         }
     }
+   
     mutaPiesa(best.rS, best.cS, best.rD, best.cD);
     cout << "PC (Hard) a mutat strategic." << endl;
 
@@ -847,7 +848,6 @@ int main()
                 }
             }
             window.draw(txtTimp);
-            window.draw(txtEliminare);
             btnBack.draw(window);
             btnUndo.draw(window);
 
