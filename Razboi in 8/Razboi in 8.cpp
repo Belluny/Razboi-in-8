@@ -523,6 +523,16 @@ int main()
         btnEasy.setPosition(cx - btnW / 2, cy);
         btnHard.setPosition(cx - btnW / 2, cy + 150);
 
+        txtSetupTitlu.setPosition({ cx, cy - 150.f });
+
+        inputBox.setPosition({ cx, cy });
+
+        txtInputMutari.setPosition({ cx, cy });
+
+        txtWin.setPosition({ cx, cy });
+        // Butonul are latime 400, deci scadem 200 ca sa fie centrat pe X
+        btnConfirmStart.setPosition(cx - 200, cy + 150);
+
         float colL = w * 0.25f;
         float colR = w * 0.60f;
 
@@ -853,7 +863,7 @@ int main()
                 // Centram textul
                 sf::FloatRect b = txtWin.getLocalBounds();
                 txtWin.setOrigin({ b.size.x / 2.f, b.size.y / 2.f });
-                txtWin.setPosition({ 1920.f / 2, 1080.f / 2 });
+                txtWin.setOrigin({ b.size.x / 2.f, b.size.y / 2.f });
                 winTimer.restart();
                 currentState = GameState::WIN; // STOP JOC
             }
@@ -864,8 +874,7 @@ int main()
                 // Centram textul
                 sf::FloatRect b = txtWin.getLocalBounds();
                 txtWin.setOrigin({ b.size.x / 2.f, b.size.y / 2.f });
-                txtWin.setPosition({ 1920.f / 2, 1080.f / 2 });
-                winTimer.restart();
+                txtWin.setPosition({ (float)window.getSize().x / 2.f, (float)window.getSize().y / 2.f });
                 currentState = GameState::WIN; // STOP JOC
             }
         }
