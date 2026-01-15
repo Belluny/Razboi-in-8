@@ -9,6 +9,7 @@
 #include <ctime>   // Pentru time()
 #include <string>
 #include <fstream>
+
 using namespace std;
 
 std::vector<sf::Color> culoriDisponibile = {
@@ -253,7 +254,7 @@ void mutareCalculatorHard()
 // 3. UI (BUTOANE & MENU)
 // =========================================================
 
-enum class GameState { MENU, MODE_SELECT, GAME, OPTIONS, EXIT };
+enum class GameState { MENU, MODE_SELECT, SETUP,GAME, OPTIONS, EXIT, WIN};
 
 struct Button {
     sf::RectangleShape shape;
@@ -402,14 +403,10 @@ sf::Text creareTitlu(float x, float y, std::string str, const sf::Font& font)
 
 int main()
 {
-    srand(time(NULL)); // Initializare Random
+    srand((unsigned int)time(NULL)); // Initializare Random
 
-    // Configurare Consola
-    cout << "Mutarile Minime inainte de eliminare: ";
-    if (!(cin >> mutariMinime)) {
-        mutariMinime = 0;
-        cin.clear();
-    }
+    mutariMinime = 0;
+    bool isTyping = false;
 
     sf::RenderWindow window(sf::VideoMode({ 1920, 1080 }), "Razboi in 8", sf::Style::Default, sf::State::Fullscreen);
     window.setFramerateLimit(60);
@@ -436,11 +433,37 @@ int main()
     sf::CircleShape piesa(50.f);
     piesa.setOrigin({ 0.f, 0.f });
     sf::Clock aiTimer;
+    sf::Clock winTimer;
 
     GameState currentState = GameState::MENU;
 
     // --- BUTOANE MENU PRINCIPAL ---
     float btnW = 400.f; float btnH = 80.f;
+
+    //WIN
+    sf::Text txtWin(font, "", 80);
+    txtWin.setOutlineColor(sf::Color::Black);
+    txtWin.setOutlineThickness(3.f);
+    //Mutari minime
+    std::string inputMutariString = "";
+    sf::Text txtSetupTitlu = creareTitlu(0, 0, "INTRODU NR. MUTARI:", font);
+    sf::FloatRect bTitlu = txtSetupTitlu.getLocalBounds();
+    txtSetupTitlu.setOrigin({ bTitlu.size.x / 2, bTitlu.size.y / 2 });
+    txtSetupTitlu.setPosition({ 1920.f / 2, 1080.f / 2 - 150.f });
+
+    sf::RectangleShape inputBox({ 300.f, 80.f });
+    inputBox.setOrigin({ 150.f, 40.f });
+    inputBox.setPosition({ 1920.f / 2, 1080.f / 2 });
+    inputBox.setFillColor(sf::Color(50, 50, 50));
+    inputBox.setOutlineColor(sf::Color::White);
+    inputBox.setOutlineThickness(2.f);
+
+    sf::Text txtInputMutari(font, "", 50);
+    txtInputMutari.setFillColor(sf::Color::White);
+    txtInputMutari.setPosition({ 1920.f / 2, 1080.f / 2 });
+
+    Button btnConfirmStart(0, 0, 400, 100, "INCEPE JOCUL", font);
+    btnConfirmStart.setPosition(1920.f / 2 - 200, 1080.f / 2 + 150);
 
     // Menu Buttons
     Button btnStart(0, 0, btnW, btnH, "START", font);
@@ -584,34 +607,97 @@ int main()
         {
             if (event->is<sf::Event::Closed>()) window.close();
 
+            // =========================================================
+            // 1. LOGICA DE TASTATURA (SEPARAT DE MOUSE!)
+            // =========================================================
+            if (const auto* textEvt = event->getIf<sf::Event::TextEntered>())
+            {
+                // Verificam AICI daca suntem in SETUP si daca casuta e activa
+                if (currentState == GameState::SETUP && isTyping)
+                {
+                    if (textEvt->unicode == 8) { // Backspace
+                        if (!inputMutariString.empty()) inputMutariString.pop_back();
+                    }
+                    else if (textEvt->unicode >= '0' && textEvt->unicode <= '9') { // Cifre
+                        if (inputMutariString.length() < 3) {
+                            inputMutariString += static_cast<char>(textEvt->unicode);
+                        }
+                    }
+
+                    // Actualizare Text pe ecran
+                    txtInputMutari.setString(inputMutariString);
+                    sf::FloatRect b = txtInputMutari.getLocalBounds();
+                    txtInputMutari.setOrigin({ b.position.x + b.size.x / 2.f, b.position.y + b.size.y / 2.f });
+                }
+            }
+
+            // =========================================================
+            // 2. LOGICA DE MOUSE (CLICK-URI)
+            // =========================================================
             if (const auto* mousePress = event->getIf<sf::Event::MouseButtonPressed>())
             {
                 if (mousePress->button == sf::Mouse::Button::Left)
                 {
-                    // 1. MENIU PRINCIPAL
+                    // A. MENIU PRINCIPAL
                     if (currentState == GameState::MENU)
                     {
-                        if (btnStart.isHovered(mousePosFloat)) currentState = GameState::MODE_SELECT; // Mergem la selectie
+                        if (btnStart.isHovered(mousePosFloat)) currentState = GameState::MODE_SELECT;
                         else if (btnSettings.isHovered(mousePosFloat)) currentState = GameState::OPTIONS;
                         else if (btnQuit.isHovered(mousePosFloat)) window.close();
                     }
 
-                    // 2. SELECTIE MOD (NOU)
+                    // B. SELECTIE MOD
                     else if (currentState == GameState::MODE_SELECT)
                     {
                         if (btnPvP.isHovered(mousePosFloat)) {
-                            tipJoc = 0; resetareJoc(); currentState = GameState::GAME;
+                            tipJoc = 0;
+                            inputMutariString = ""; txtInputMutari.setString("");
+                            currentState = GameState::SETUP;
                         }
                         else if (btnEasy.isHovered(mousePosFloat)) {
-                            tipJoc = 1; resetareJoc(); currentState = GameState::GAME;
+                            tipJoc = 1;
+                            inputMutariString = ""; txtInputMutari.setString("");
+                            currentState = GameState::SETUP;
                         }
                         else if (btnHard.isHovered(mousePosFloat)) {
-                            tipJoc = 2; resetareJoc(); currentState = GameState::GAME;
+                            tipJoc = 2;
+                            inputMutariString = ""; txtInputMutari.setString("");
+                            currentState = GameState::SETUP;
                         }
                         else if (btnBack.isHovered(mousePosFloat)) {
-                            currentState = GameState::MENU;
+                            currentState = GameState::MENU; // Te duce inapoi in meniu
                         }
                     }
+
+                    // C. SETUP (Aici verificam doar CLICK-urile, nu tastatura)
+                    else if (currentState == GameState::SETUP)
+                    {
+                        // 1. Click pe Casuta
+                        if (inputBox.getGlobalBounds().contains(mousePosFloat)) {
+                            isTyping = true;
+                            inputBox.setOutlineColor(sf::Color::Cyan);
+                        }
+                        // 2. Click pe Start
+                        else if (btnConfirmStart.isHovered(mousePosFloat)) {
+                            if (inputMutariString.empty()) mutariMinime = 0;
+                            else mutariMinime = std::stoi(inputMutariString);
+                            resetareJoc();
+                            timpAcumulat = 0;
+                            currentState = GameState::GAME;
+                        }
+                        // 3. Click pe Back
+                        else if (btnBack.isHovered(mousePosFloat)) {
+                            currentState = GameState::MODE_SELECT;
+                        }
+                        // 4. Click in gol
+                        else {
+                            isTyping = false;
+                            inputBox.setOutlineColor(sf::Color::White);
+                        }
+                    }
+                
+            
+        
 
                     // 3. SETARI
                     else if (currentState == GameState::OPTIONS)
@@ -687,7 +773,7 @@ int main()
                             if (r >= 0 && r < 8 && c >= 0 && c < 8)
                             {
                                 // LOGICA DE CLICK (SELECTIE / ELIMINARE / MUTARE)
-                                // Copiata din versiunea anterioara
+                              
                                 int val = verificaLoc(r, c);
                                 int advCurent = (randulJucatorului == 1) ? 2 : 1;
 
@@ -696,7 +782,7 @@ int main()
                                         sursaRand = r; sursaCol = c;
                                     }
                                     else if (val == advCurent && esteBlocata(r, c)) {
-                                        if (contorMutari > mutariMinime) matrice[r][c] = 0; // Eliminare
+                                        if (contorMutari >= mutariMinime) matrice[r][c] = 0; // Eliminare
                                     }
                                 }
                                 else
@@ -749,6 +835,46 @@ int main()
             if (ramase > 0) {
                 txtEliminare.setString("Eliminare in: " + std::to_string(ramase));
             }
+            int pAlbe = 0, pNegre = 0;
+
+            // 1. Numaram piesele de pe tabla
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    if (matrice[i][j] == 1) pAlbe++;
+                    if (matrice[i][j] == 2) pNegre++;
+                }
+            }
+
+            // 2. Verificam daca a castigat cineva
+            if (pAlbe == 2) {
+                txtWin.setString("JUCATORUL 2 A CASTIGAT!");
+                txtWin.setFillColor(sf::Color::Red);
+
+                // Centram textul
+                sf::FloatRect b = txtWin.getLocalBounds();
+                txtWin.setOrigin({ b.size.x / 2.f, b.size.y / 2.f });
+                txtWin.setPosition({ 1920.f / 2, 1080.f / 2 });
+                winTimer.restart();
+                currentState = GameState::WIN; // STOP JOC
+            }
+            else if (pNegre == 2) {
+                txtWin.setString("JUCATORUL 2 A CASTIGAT!");
+                txtWin.setFillColor(sf::Color::Green);
+
+                // Centram textul
+                sf::FloatRect b = txtWin.getLocalBounds();
+                txtWin.setOrigin({ b.size.x / 2.f, b.size.y / 2.f });
+                txtWin.setPosition({ 1920.f / 2, 1080.f / 2 });
+                winTimer.restart();
+                currentState = GameState::WIN; // STOP JOC
+            }
+        }
+        if (currentState == GameState::WIN)
+        {
+            if (winTimer.getElapsedTime().asSeconds() > 3.0f) {
+                currentState = GameState::MENU;
+                resetareJoc();
+            }
         }
 
 
@@ -775,6 +901,14 @@ int main()
             btnBack.shape.setFillColor(btnBack.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
 
             btnUndo.shape.setFillColor(btnUndo.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
+        }
+        else if (currentState == GameState::SETUP)
+        {
+            // Butonul START
+            btnConfirmStart.shape.setFillColor(btnConfirmStart.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
+
+            // Butonul BACK
+            btnBack.shape.setFillColor(btnBack.isHovered(mousePosFloat) ? sf::Color(100, 100, 100) : sf::Color(50, 50, 50));
         }
 
 
@@ -881,6 +1015,35 @@ int main()
             window.draw(titluMusic); sldMusic.draw(window);
             btnBack.draw(window);
         }
+        else if (currentState == GameState::SETUP)
+        { 
+            window.draw(txtSetupTitlu);
+            window.draw(inputBox);
+            window.draw(txtInputMutari);
+
+            btnConfirmStart.draw(window);
+            btnBack.draw(window);
+        }
+        else if (currentState == GameState::WIN)
+        {
+            
+
+            // Desenam un fundal semitransparent ca sa se vada textul bine
+            sf::RectangleShape overlay({ 1920.f, 1080.f });
+            overlay.setFillColor(sf::Color(0, 0, 0, 200)); // Negru transparent
+            window.draw(overlay);
+
+            window.draw(txtWin);
+
+         
+            if (winTimer.getElapsedTime().asSeconds() > 3.0f) {
+                sf::Text txtClick(font, "(Click oriunde pentru Meniu)", 30);
+                sf::FloatRect b = txtClick.getLocalBounds();
+                txtClick.setOrigin({ b.size.x / 2, b.size.y / 2 });
+                txtClick.setPosition({ 1920.f / 2, 1080.f / 2 + 100 });
+                window.draw(txtClick);
+            }
+          }
 
         window.display();
     }
