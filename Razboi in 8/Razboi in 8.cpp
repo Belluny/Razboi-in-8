@@ -49,7 +49,7 @@ float offsetX = (1920.f - 800.f) / 2.f;
 float offsetY = (1080.f - 800.f) / 2.f;
 float cellSize = 100.f;
 
-char bufferTimp[] = "Timp: 00:00";
+char bufferTimp[] = "TIME: 00:00";
 
 // --- FUNCTII AJUTATOARE ---
 
@@ -446,7 +446,7 @@ int main()
     txtWin.setOutlineThickness(3.f);
     //Mutari minime
     std::string inputMutariString = "";
-    sf::Text txtSetupTitlu = creareTitlu(0, 0, "INTRODU NR. MUTARI:", font);
+    sf::Text txtSetupTitlu = creareTitlu(0, 0, "ENTER NUMBER OF MOVES:", font);
     sf::FloatRect bTitlu = txtSetupTitlu.getLocalBounds();
     txtSetupTitlu.setOrigin({ bTitlu.size.x / 2, bTitlu.size.y / 2 });
     txtSetupTitlu.setPosition({ 1920.f / 2, 1080.f / 2 - 150.f });
@@ -462,7 +462,7 @@ int main()
     txtInputMutari.setFillColor(sf::Color::White);
     txtInputMutari.setPosition({ 1920.f / 2, 1080.f / 2 });
 
-    Button btnConfirmStart(0, 0, 400, 100, "INCEPE JOCUL", font);
+    Button btnConfirmStart(0, 0, 400, 100, "START GAME", font);
     btnConfirmStart.setPosition(1920.f / 2 - 200, 1080.f / 2 + 150);
 
     // Menu Buttons
@@ -843,7 +843,7 @@ int main()
             txtTimp.setString(obtineTimpFormatat((int)timpAcumulat));
             int ramase = mutariMinime - contorMutari;
             if (ramase > 0) {
-                txtEliminare.setString("Eliminare in: " + std::to_string(ramase));
+                txtEliminare.setString("ELIMINATION IN: " + std::to_string(ramase));
             }
             int pAlbe = 0, pNegre = 0;
 
@@ -938,7 +938,7 @@ int main()
         }
         else if (currentState == GameState::MODE_SELECT)
         {
-            sf::Text title(font, "SELECTEAZA MOD", 80);
+            sf::Text title(font, "SELECT MODE", 80);
             title.setFillColor(sf::Color::White);
             sf::FloatRect bounds = title.getLocalBounds();
             title.setOrigin({ bounds.size.x / 2.f, bounds.size.y / 2.f });
